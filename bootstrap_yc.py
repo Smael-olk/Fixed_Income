@@ -128,6 +128,13 @@ def parallel_shock_RF(rates, times, shock):
 
     return shocked_rates, shocked_DFs
 
+def swap_rate_calculator(swap_maturity, payment_frequency, dfs):
+    settle_dates =  np.arange(1/payment_frequency, swap_maturity + 1/payment_frequency, payment_frequency)
+    swap_DFs = [interp_df(dfs,t) for t in settle_dates]
+    BPV = np.sum([swap_DFs[t]*1/payment_frequency for t in range(len(settle_dates))])
+    swap_rate = (1-swap_DFs[-1])/BPV
+    return swap_rate
+    
 dfs= bootstrap_depos(depos)
 dfs= bootstrap_futures(dfs,futures)
 dfs= bootstrap_swaps(dfs,swaps)
@@ -141,12 +148,25 @@ C1 = 0.04
 N1 = 1e8
 F1 = 2
 
+### Bond Price
 Price = bond_pricer(N1,M1,C1,F1,dfs)
 print(f"Bond Price is : €{Price:.2f}")
 
+### Shocked ZC Bond Pricing
+
+Shock = 0.0001 # 1 basis point
+
+Shocked_zrates , shocked_DFs = parallel_shock_RF(zero_rates, times , Shock)
+Shocked_Price = bond_pricer(N1,M1,C1,F1, shocked_DFs)
+
+print(f"1bp Shocked Bond Price is : €{Shocked_Price:.2f}")
+
+PL = Shocked_Price - Price
+print(f"PL =  €{PL:.2f}")
 
 plt.figure(figsize=(8,5))
 plt.plot(times, zero_rates, marker="o", color="orange")
+plt.plot(times, Shocked_zrates, marker="o", color="red")
 plt.title("Bootstrapped Zero Curve")
 plt.xlabel("Maturity (years)")
 plt.ylabel("Zero Rate")
